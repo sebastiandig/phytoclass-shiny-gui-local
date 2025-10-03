@@ -7,14 +7,15 @@ ui <- fluidPage(
   title = "Phytoclass-App",
   # App title ----
   titlePanel(markdown(paste0(
-    "# Phytoplankton-From-Pigments GUI v0.0.3.0 \n",
+    "# Phytoplankton-From-Pigments GUI v1.0.0.0 \n",
     "This tool uses the [phytoclass R library](",
     "https://cran.r-project.org/web/packages/phytoclass/index.html",
     ") to estimate phytoplankton community composition from pigment data. \n",
     "\n",
     "## How to Cite \n",
-    "TODO \n",
-    "\n",
+    'Hayward, Alexander, Matthew H. Pinkerton, and Andres Gutierrez‐Rodriguez.',
+    '"phytoclass: A pigment‐based chemotaxonomic method to determine the biomass of phytoplankton classes." ',
+    'Limnology and Oceanography: Methods 21.4 (2023): 220-241. \n',
     "## Feedback \n",
     "Share your thoughts and report bugs by creating a new issue in the ",
     # "[issue tracker](https://github.com/phytoclass/phytoclass-shiny-gui/issues). \n",
@@ -42,7 +43,7 @@ ui <- fluidPage(
               markdown(paste0(
                 "# Pigment Sample Matrix (S Matrix)\n",
                 "Select a pigment concentrations file to supply the ",
-                "`Sample Matrix` (aka `S matrix`) of pigment samples. \n",
+                "`Sample Matrix` (aka `S matrix`) of pigment samples. \n\n",
                 "[See here for details]",
                 "(https://github.com/USF-IMARS/chemtax-shiny-gui/blob/main/rmd/pigment_matrix.md)"
               )),
@@ -53,20 +54,18 @@ ui <- fluidPage(
                   ".csv"
                 )
               ),
+              h5("Run matrix check against default F matrix"),
               actionButton("run_matrix_check_S", "Run Matrix Check", class = "btn btn-primary"),
               verbatimTextOutput("matrix_check_output_S"),
               br(), br(),
               uiOutput("pigments_table_ui")
             ),
             tabPanel("Taxa List",
-              markdown(paste(
-                "# Taxa list (F Matrix)",
-                'Select "taxa expected in the sample file ',
-                "to supply the ",
-                "`F Matrix` of pigment-taxa contributions. \n",
-                "[See here for details]",
-                "(https://github.com/USF-IMARS/chemtax-shiny-gui/blob/main/rmd/F_matrix.md)",
-                sep = "\n"
+              markdown(paste0(
+                "# Taxa list (F Matrix)\n",
+                "Select taxa expected in the sample file to supply the ",
+                "`F Matrix` of pigment-taxa contributions. \n\n",
+                "[See here for details](https://github.com/USF-IMARS/chemtax-shiny-gui/blob/main/rmd/taxa_matrix.md)"
               )),
               # TODO: OPTIONAL section
               # csv upload to customize ratios and|or add rows to userMinMax
@@ -74,7 +73,7 @@ ui <- fluidPage(
               # `Ratio Matrix` (aka `F matrix`) is the ratio of pigments
               #       relative to chlorophyll a.
               # TODO: select preset dropdown (region)
-              selectInput("taxaPreset", "Taxa Preset", list("all")),#, "antarctic")),
+              selectInput("taxaPreset", "Taxa Preset", list("Default")),#, "antarctic")),
               # TODO: or custom preset upload
               fileInput("taxalist_file", "List of taxa .csv file.",
                 multiple = FALSE,
@@ -86,6 +85,7 @@ ui <- fluidPage(
               # TODO: ability to customize - uncheck groups in the preset
               #       example removal:
               #       Sm2 <- Sm[, -4]
+              h5("Run matrix check against custom uploaded F matrix"),
               actionButton("run_matrix_check_F", "Run Matrix Check", class = "btn btn-primary"),
               verbatimTextOutput("matrix_check_output_F"),
               br(), br(),
@@ -96,8 +96,8 @@ ui <- fluidPage(
                 "# Custom Min-Max Table\n",
                 "You can upload a `.csv` file to provide pigment ratio lower/upper bounds ",
                 "for each taxon-pigment pair. \n\n",
-                 "[See here for details]",
-                "(https://github.com/USF-IMARS/chemtax-shiny-gui/blob/main/rmd/F_matrix.md)",
+                "[See here for details]",
+                "(https://github.com/USF-IMARS/chemtax-shiny-gui/blob/main/rmd/minmax_matrix.md)",
                 sep = "\n"
               )),
               fileInput("minmax_file", "Upload Min-Max .csv file (optional)",
@@ -116,9 +116,9 @@ ui <- fluidPage(
             )),
             quartoReportUI("cluster",
               defaultSetupCode = paste(
-                "inputFile <- 'pigments.rds'",
-                "outputFile <- 'clusters.rds'",
-                "minSamplesPerCluster <- 14",
+                "inputFile <- 'pigments.rds'  # path to the pigment sample data",
+                "outputFile <- 'clusters.rds'  # where clustering results will be saved",
+                "minSamplesPerCluster <- 14  # minimum samples needed to form a cluster",
                 sep="\n"
                 )
             )
@@ -129,7 +129,7 @@ ui <- fluidPage(
               "Details about the selected cluster are shown here."
             )),
             quartoReportUI("inspectCluster",
-              defaultSetupCode = "selected_cluster <- 1"
+              defaultSetupCode = "selected_cluster <- 1  #Cluster to view"
             ),
           ),
           tabPanel("Run Annealing",
@@ -139,15 +139,15 @@ ui <- fluidPage(
               "pigment samples selected."
             )),
             quartoReportUI("anneal",
-              # TODO: fill these to match .qmd
+              # fill these to match .qmd
               defaultSetupCode = paste(
-                "inputFile <- 'clusters.rds'",
-                "taxaFile <- 'taxa.rds'",
-                "minMaxFile <- 'minmax.rds'",
-                "outputFile <- 'annealing.rds'",
-                "seed <- 0",
-                "selected_cluster <- 1",
-                "niter <- 500",
+                "inputFile <- 'clusters.rds'  # clustering results from Clustering Tab",
+                "taxaFile <- 'taxa.rds'  # taxa list (F matrix) for the analysis",
+                "minMaxFile <- 'minmax.rds'  # optional min-max pigment ratio bounds",
+                "outputFile <- 'annealing.rds'   # where annealing results are saved",
+                "seed <- 0  # random seed for reproducibility",
+                "selected_cluster <- 1  # which cluster to analyze",
+                "niter <- 500  # number of iterations; higher = slower but more accurate",
                 sep="\n"
               )
             )
@@ -155,5 +155,14 @@ ui <- fluidPage(
         ),
       width = 10
       )
+    ),
+    tags$div(
+      style = "
+        position: fixed;
+        top: 10px;
+        right: 15px;
+        font-size: 16px;
+        z-index: 9999;",
+      glue("phytoclass v{packageVersion('phytoclass')}")
     )
 )

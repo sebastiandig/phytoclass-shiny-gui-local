@@ -10,16 +10,16 @@ source("modules/quartoReport/buildContext.R")
 
 # === Function to actually render the report =========
 actualRenderReport <- function(
-    contextRDSPath, inputCode, output, qmd_path, reportHTMLPath, reportPDFPath, 
+    contextRDSPath, inputCode, output, qmd_path, reportHTMLPath,
     reportQMDPath, id, session_id, session_dir, bypass_clustering
 ){
   print("rendering....")
   print(glue("inputCode: {inputCode}"))
-  
+
   # Save the context built using the input code
   contextRDSPath(buildContext(inputCode, bypass_clustering, output, session_id, session_dir))
   print(glue("context: {contextRDSPath()}"))
-  
+
   tryCatch({
     # Create a session-specific QMD
     qmd_filename <- glue("{id}.qmd")
@@ -35,14 +35,14 @@ actualRenderReport <- function(
       output_message <- system2(
         command = "quarto",
         args = c(
-          "render", 
+          "render",
           basename(session_qmd_path),
           "--output", output_filename,
           "--execute-params", basename(contextRDSPath()),
-          "-P", "session_dir:.",              
+          "-P", "session_dir:.",
           "--execute-dir", "."
         ),
-        stdout = TRUE, 
+        stdout = TRUE,
         stderr = TRUE,
         wait = TRUE
       )
@@ -56,40 +56,21 @@ actualRenderReport <- function(
         paste(output_message, collapse = "\n")
       ))
     }
-    
-    # === Render PDF report ============================
-    # In actualRenderReport function, modify the system2 calls:
-    withr::with_dir(session_dir, {
-      pdf_output_message <- system2(
-        command = "quarto",
-        args = c(
-          "render", 
-          basename(session_qmd_path),
-          "--to", "pdf", 
-          "--output", basename(reportPDFPath),
-          "--execute-params", basename(contextRDSPath()),
-          "-P", "session_dir:.",              
-          "--execute-dir", "."
-        ),
-        stdout = TRUE, 
-        stderr = TRUE
-      )
-    })
 
     # Copy the QMD file for download
     file.copy(qmd_path, reportQMDPath, overwrite = TRUE)
-    
+
     # === Render report inline in app (HTML iframe) ===
     output$output <- renderUI({
       # Use relative path from www directory
       relative_path <- sub("^www/", "", session_dir)
       tags$iframe(
         src = file.path(relative_path, output_filename),
-        width = "100%", 
+        width = "100%",
         height = "800px"
       )
     })
-    
+
   }, error = function(e) {
     # Show error message in UI if rendering fails
     output$output <- renderUI({
@@ -108,8 +89,8 @@ actualRenderReport <- function(
 
 # === Schedules and triggers the report rendering =================================
 renderReport <- function(
-    contextRDSPath, setupInputCode, output, qmd_path, reportHTMLPath, id, 
-    reportPDFPath, reportQMDPath, session_id, session_dir, bypass_clustering
+    contextRDSPath, setupInputCode, output, qmd_path, reportHTMLPath, id,
+    reportQMDPath, session_id, session_dir, bypass_clustering
 ){
   # renderReport schedules the render for later so that the "generating report..." text shows immediately
   print(glue("generating report '{id}'..."))
@@ -130,11 +111,10 @@ renderReport <- function(
     contextRDSPath,
     setupInputCode,
     output,
-    qmd_path, 
+    qmd_path,
     reportHTMLPath,
-    reportPDFPath,
     reportQMDPath,
-    id, 
+    id,
     session_id,
     session_dir,
     bypass_clustering
@@ -145,37 +125,9 @@ renderReport <- function(
 quartoReportUI <- function(id, defaultSetupCode = "x <- 1"){
   ns <- NS(id)
   return(tagList(tabsetPanel(type = "tabs",
-                             
-    # --- Tab for generating report ---
-    tabPanel("generate report",
-    verbatimTextOutput(ns("execParamsDisplay")),
-    tags$br(),
-    if (id == "anneal") tagList(
-      checkboxInput(ns("bypass_clustering"),
-        label = "Skip Clustering",
-        value = FALSE
-      )
-    ),
-    actionButton(ns("generateButton"), "generate report"),
-    
-    # Add a loading spinner while output is rendering
-    shinycssloaders::withSpinner(uiOutput(ns("spinnerOutput"))),
-    
-    markdown(c(
-      "NOTE: please be patient after clicking this button. ",
-      "Rendering can take multiple minutes depending on settings."
-      )),
-    htmlOutput(ns("output"))
-    ),
-    
+
     # --- Tab for advanced customization of report parameters ---
-    tabPanel("advanced configuration",
-      # fileInput(ns("inputFile"), "upload file here OR define configuration below.",
-      #   width = "100%",
-      #   accept = ".rds",
-      #   buttonLabel = "input file",
-      #   placeholder = glue("{id}_input.rds")
-      # ),
+    tabPanel("configuration",
       markdown(paste(
         "## (optional) report customization",
         sep=""
@@ -191,18 +143,41 @@ quartoReportUI <- function(id, defaultSetupCode = "x <- 1"){
         resize = "both"
       )
     ),
-   
+
+    # --- Tab for generating report ---
+    tabPanel("generate report",
+      verbatimTextOutput(ns("execParamsDisplay")),
+      tags$br(),
+      if (id == "anneal") tagList(
+        checkboxInput(ns("bypass_clustering"),
+          label = "Skip Clustering",
+          value = FALSE
+        )
+      ),
+      actionButton(ns("generateButton"), "generate report"),
+
+      # Add a loading spinner while output is rendering
+      shinycssloaders::withSpinner(uiOutput(ns("spinnerOutput"))),
+
+      markdown(c(
+        "NOTE: please be patient after clicking this button. ",
+        "Rendering can take multiple minutes depending on settings."
+        )),
+      htmlOutput(ns("output"))
+    ),
+
     # --- Tab for downloading report files ---
     tabPanel("download results",
-      # TODO:
       markdown("Use the buttons below to download results from the report."),
       # actionButton(ns("downloadRDSButton"), "download .rds"),
-      downloadButton(ns("downloadPDFButton"), "Download PDF"),
+      downloadButton(ns("downloadHTMLButton"), "Download HTML"),
       downloadButton(ns("downloadQMDButton"), "Download QMD"),
       if (id == "anneal") {
         tagList(
           tags$hr(),
-          downloadButton(ns("downloadTaxaCSVButton"), "Download Taxa Estimates (.csv)")
+          downloadButton(ns("downloadTaxaCSVButton"), "Download Taxa Estimates (.csv)"),
+          downloadButton(ns("downloadFMatrixCSVButton"), "Download F Matrix (.csv)"),
+          downloadButton(ns("downloadMAECSVButton"), "Download MAE (.csv)")
         )
       },
       if (id == "inspectCluster") {
@@ -219,28 +194,33 @@ quartoReportUI <- function(id, defaultSetupCode = "x <- 1"){
 quartoReportServer <- function(id, session_dir = NULL){
   session_dir <- basename(session_dir)
   session_path <- file.path("www", session_dir)
-  
+
   # Paths
   qmd_path <- file.path("www", glue("{id}.qmd"))
   reportHTMLPath <- file.path(session_path, glue("{id}.html"))
-  
+
   #path to taxa csv
   taxaCSVPath <- file.path(session_path, "taxa_estimates.csv")
+
+  #path to Fmatrix csv
+  fmatrixCSVPath <- file.path(session_path, "fmatrix.csv")
+
+  #path to MAE csv
+  MAECSVPath <- file.path(session_path, "MAE.csv")
 
   # Ensure download_reports folder exists
   download_reports_dir <- file.path(session_path, "download_reports")
   dir.create(download_reports_dir, showWarnings = FALSE, recursive = TRUE)
-  reportPDFPath <- file.path(session_path, glue("{id}.pdf"))
 
   reportQMDPath <- file.path(download_reports_dir, glue("{id}-report.qmd"))
-  
+
   moduleServer(id, function(input, output, session){
     # Generate session ID if not provided
     session_id <- paste0("session_", digest(Sys.time(), algo = "md5"))
-    
+
    # Reactive object to store path to execution context
     contextRDSPath <- reactiveVal(file.path(session_path, "context.yaml"))
-    
+
     # Flag to track if report has been generated
     reportGenerated <- reactiveVal(FALSE)
 
@@ -257,7 +237,7 @@ quartoReportServer <- function(id, session_dir = NULL){
         return(NULL)
       }
     })
-    
+
     # === generate the quarto report =========================================
     observeEvent(input$generateButton, {
       reportGenerated(FALSE)
@@ -266,10 +246,9 @@ quartoReportServer <- function(id, session_dir = NULL){
         contextRDSPath,
         input$setupInputCode,
         output,
-        qmd_path, 
-        reportHTMLPath, 
+        qmd_path,
+        reportHTMLPath,
         id,
-        reportPDFPath, 
         reportQMDPath,
         session_id,
         session_path,
@@ -277,22 +256,22 @@ quartoReportServer <- function(id, session_dir = NULL){
       )
       reportGenerated(TRUE)
     })
-    
-    # === Download Handler for PDF report ===================================
-    output$downloadPDFButton <- downloadHandler(
+
+    # === Download Handler for HTML Report ===============================
+    output$downloadHTMLButton <- downloadHandler(
       filename = function() {
-        paste0(id, "-report-", Sys.Date(), ".pdf")
+        paste0(id, "-report-", Sys.Date(), ".html")
       },
       content = function(file) {
         req(reportGenerated())
-        if(file.exists(reportPDFPath)) {
-          file.copy(reportPDFPath, file)
+        if (file.exists(reportHTMLPath)) {
+          file.copy(reportHTMLPath, file)
         } else {
-          showNotification("PDF not found. Generate report first.", type = "error")
+          showNotification("HTML not found. Generate report first.", type = "error")
         }
       }
     )
-    
+
     # === Download Handler for QMD source file ===============================
     output$downloadQMDButton <- downloadHandler(
       filename = function() {
@@ -307,7 +286,8 @@ quartoReportServer <- function(id, session_dir = NULL){
         }
       }
     )
-    
+
+    # === Download Handler for TAXA Result ===============================
     output$downloadTaxaCSVButton <- downloadHandler(
       filename = function() {
         paste0(id, "_taxa_estimates_", Sys.Date(), ".csv")
@@ -315,13 +295,47 @@ quartoReportServer <- function(id, session_dir = NULL){
       content = function(file) {
         req(reportGenerated())
         if (file.exists(taxaCSVPath)) {
-          file.copy(taxaCSVPath, file)
+          taxa_df <- read.csv(taxaCSVPath, row.names = 1)
+          is_num <- sapply(taxa_df, is.numeric)
+          taxa_df[is_num] <- lapply(taxa_df[is_num], function(x) round(x, 4))
+          write.csv(taxa_df, file)
         } else {
           showNotification("Taxa estimates file not found. Please generate the report first.", type = "error")
         }
       }
     )
-    
+
+    # === Download Handler for F Matrix Result ===============================
+    output$downloadFMatrixCSVButton <- downloadHandler(
+      filename = function() {
+        paste0(id, "_fmatrix_", Sys.Date(), ".csv")
+      },
+      content = function(file) {
+        req(reportGenerated())
+        if (file.exists(fmatrixCSVPath)) {
+          file.copy(fmatrixCSVPath, file)
+        } else {
+          showNotification("F matrix file not found. Please generate the report first.", type = "error")
+        }
+      }
+    )
+
+    # === Download Handler for MAE Result ===============================
+    output$downloadMAECSVButton <- downloadHandler(
+      filename = function() {
+        paste0(id, "_MAE_", Sys.Date(), ".csv")
+      },
+      content = function(file) {
+        req(reportGenerated())
+        if (file.exists(MAECSVPath)) {
+          file.copy(MAECSVPath, file)
+        } else {
+          showNotification("MAE file not found. Please generate the report first.", type = "error")
+        }
+      }
+    )
+
+
     # === environment upload ================================================
     # TODO: upload context.rds
 
@@ -329,4 +343,3 @@ quartoReportServer <- function(id, session_dir = NULL){
     # TODO: download report button controller
   })
 }
-
