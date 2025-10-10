@@ -118,8 +118,9 @@ ui <- fluidPage(
               defaultSetupCode = paste(
                 "inputFile <- 'pigments.rds'  # path to the pigment sample data",
                 "outputFile <- 'clusters.rds'  # where clustering results will be saved",
-                "minSamplesPerCluster <- 14  # minimum samples needed to form a cluster",
-                sep="\n"
+                # "minSamplesPerCluster <- 14  # minimum samples needed to form a cluster",
+                "min_cluster_size <- 14  # minimum samples needed to form a cluster",
+                sep = "\n"
                 )
             )
           ),

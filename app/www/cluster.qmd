@@ -9,7 +9,7 @@ params:
   session_dir: "session-default"
   inputFile: "pigments.rds"
   outputFile: "clusters.rds"
-  minSamplesPerCluster: 20
+  min_cluster_size: 20
 ---
 
 ```{r echo=FALSE, results='asis'}
@@ -17,7 +17,7 @@ library(glue)
 cat(glue("
 - **Input File**: `{params$inputFile}`  
 - **Output File**: `{params$outputFile}`  
-- **Min samples per cluster**: `{params$minSamplesPerCluster}`  
+- **Min samples per cluster**: `{params$min_cluster_size}`  
 "))
 ```
 
@@ -52,7 +52,7 @@ print(paste("Data loaded, length:", nrow(pigment_df)))
 
 result <- phytoclass::Cluster(
   pigment_df,
-  params$minSamplesPerCluster
+  params$min_cluster_size
 )
 ```
 
